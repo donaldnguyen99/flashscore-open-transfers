@@ -152,8 +152,8 @@ def get_chrome_version_and_path():
     version = None
     install_path = None
 
-    # if DEFAULT_PARAMS['CHROME_VERSION'] and DEFAULT_PARAMS['CHROME_PATH']:
-    #     return DEFAULT_PARAMS['CHROME_VERSION'], DEFAULT_PARAMS['CHROME_PATH']
+    if DEFAULT_PARAMS['CHROME_VERSION'] and DEFAULT_PARAMS['CHROME_PATH']:
+        return DEFAULT_PARAMS['CHROME_VERSION'], DEFAULT_PARAMS['CHROME_PATH']
 
     try:
         if platform == "linux" or platform == "linux2":
