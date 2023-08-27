@@ -3,7 +3,7 @@
 :start
 cls
 
-pip install requests selenium
+pip install -r requirements.txt
 
 
 echo Creating shortcut on desktop...

@@ -6,26 +6,28 @@ Desc: Opens player pages from flashscore.com team transfers URL based on the
 ## Installation
 
 The install script requires python 3 and pip to be installed on your system.
-The flashscore-open-transfer.py script requires the requests and selenium
+The flashscore_open_transfer.py script requires the requests and selenium
 python packages necessary to run, and the install script will help install
 those packages and create a shortcut of the .py on your desktop.
 
 For Windows:
 
-Run the "install.bat"
+1. Extract the zip file to a directory where you want to install the script
 
-or simply run the following command in the terminal:
+2. Run the `install.bat` script or simply run the following command in the
+   terminal:
 
 ```bash
-pip install requests selenium
+pip install -r requirements.txt
 ```
 
 ## Usage
 
-Click on the shortcut created on your desktop to run the script, or create one yourself using the following command:
+Click on the shortcut created on your desktop to run the script and run from
+there, or run it yourself in the terminal using the following command:
 
 ```bash
-python flashscore-open-transfer.py
+python flashscore_open_transfer.py
 ```
 
 A prompt will appear asking for the team URL and transfer dates. The team URL
