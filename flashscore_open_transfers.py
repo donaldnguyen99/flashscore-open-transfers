@@ -4,12 +4,15 @@ import datetime
 import os
 import re
 import zipfile
+import sys
 from sys import platform
 import time
 
 import requests
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+
 
 # To run this script, you need to have Python 3 installed.
 # You also need to install the following packages:
@@ -19,6 +22,12 @@ from selenium.webdriver.chrome.options import Options
 DEFAULT_PARAMS = {
     'ASK_FOR_DAY': False,
 }
+def show_exception_and_exit(exc_type, exc_value, tb):
+    import traceback
+    traceback.print_exception(exc_type, exc_value, tb)
+    input("Press key to exit.")
+    sys.exit(-1)
+
 
 def correct_year(year, month, day, now=datetime.datetime.now()):
     # if day and month are after now, set year to previous year
@@ -215,6 +224,8 @@ def get_chrome_driver():
     return os.path.isfile(chrome_driver_path), chrome_driver_path
 
 def main():
+    
+    sys.excepthook = show_exception_and_exit
     # Example
     # url = 'https://www.flashscore.com/team/medyk-konin/2couPXCh/transfers/'
     # year = 2023
@@ -225,34 +236,35 @@ def main():
     earliest_date_included = datetime.datetime(year, month, day)
 
     chrome_driver_exists, chrome_driver_path = get_chrome_driver()
-    chrome_options = Options()
-    chrome_options.headless = True
+    service = Service(executable_path=chrome_driver_path)
+    chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_argument('--headless')
     chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
-    driver = webdriver.Chrome(chrome_driver_path, options=chrome_options)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
     driver.implicitly_wait(10)
 
     print('Searching for transfers...')
     driver.get(url)
-    driver.find_element_by_id('onetrust-accept-btn-handler').click()
+    driver.find_element(By.ID, 'onetrust-accept-btn-handler').click()
     time.sleep(3)
     while True:
         try:
-            driver.find_element_by_css_selector('div.transferTab__more > a').click()
+            driver.find_element(By.CSS_SELECTOR, 'div.transferTab__more > a').click()
             time.sleep(0.2)
         except Exception as e:
             break
 
 
-    elements = driver.find_elements_by_css_selector('div.transferTab__row.transferTab__row--team')[1:]
+    elements = driver.find_elements(By.CSS_SELECTOR, 'div.transferTab__row.transferTab__row--team')[1:]
     print(f'\nFound {len(elements)} total transfers\n')
     print(f'Selecting transfers on and after {calendar.month_name[month]} {day}, {year}...\n')
     urls = []
     players = []
     for element in elements:
-        date_text = element.find_element_by_css_selector('div.transferTab__date').text
+        date_text = element.find_element(By.CSS_SELECTOR, 'div.transferTab__date').text
         date = datetime.datetime.strptime(date_text, '%d.%m.%Y')
         if date >= earliest_date_included:
-            name_ele = element.find_element_by_css_selector('div.transferTab__player > div.transferTab__teamName > a')
+            name_ele = element.find_element(By.CSS_SELECTOR, 'div.transferTab__player > div.transferTab__teamName > a')
             players.append(f'{date.strftime("%d.%m.%Y")} - {name_ele.text}')
             urls.append(name_ele.get_attribute('href'))
     for player in players:
@@ -262,8 +274,4 @@ def main():
     open_pages(urls)
 
 if __name__ == '__main__':
-    try:
-        main()
-    except Exception as e:
-        print(e)
-        input('Press Enter to exit... ')
+    main()
