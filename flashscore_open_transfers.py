@@ -19,15 +19,24 @@ from selenium.webdriver.chrome.service import Service
 #   requests
 #   selenium
 
+
+# To detect Chrome automatically (32-bit version will be detected if both 
+# 32-bit and 64-bit are installed), use 
+#   'CHROME_VERSION': None 
+#   'CHROME_PATH': None
 DEFAULT_PARAMS = {
     'ASK_FOR_DAY': False,
+    'CHROME_VERSION': '115.0.5790.102',
+    'CHROME_PATH': r'C:\Program Files\Google\Chrome\Application\chrome.exe',
+    'DEPARTING_ONLY': True,
+    'LOOP': False,
 }
+
 def show_exception_and_exit(exc_type, exc_value, tb):
     import traceback
     traceback.print_exception(exc_type, exc_value, tb)
-    input("Press key to exit.")
+    input("Press Enter to exit.\n")
     sys.exit(-1)
-
 
 def correct_year(year, month, day, now=datetime.datetime.now()):
     # if day and month are after now, set year to previous year
@@ -67,7 +76,7 @@ def get_user_input(request_day=DEFAULT_PARAMS['ASK_FOR_DAY']):
     if not request_day:
         print(f'    *If you want to select transfers on and after a specific day,')
         print(f'     set ASK_FOR_DAY to True in the .py script*\n')
-        print(f'Selecting transfers on and after {calendar.month_name[month]} {day}, {year}\n')
+        print(f'Your selection: {calendar.month_name[month]} {day}, {year}')
     else:
         max_day = now.day if year == now.year and month == now.month else calendar.monthrange(year, month)[1]
         if max_day > 1: 
@@ -83,8 +92,6 @@ def get_user_input(request_day=DEFAULT_PARAMS['ASK_FOR_DAY']):
     except KeyboardInterrupt:
         print('\nExiting...')
         exit()
-
-    print(f'Selecting transfers on and after {calendar.month_name[month]} {day}, {year}')
     return url, year, month, day
 
 def open_pages(urls):
@@ -145,6 +152,9 @@ def get_chrome_version_and_path():
     version = None
     install_path = None
 
+    # if DEFAULT_PARAMS['CHROME_VERSION'] and DEFAULT_PARAMS['CHROME_PATH']:
+    #     return DEFAULT_PARAMS['CHROME_VERSION'], DEFAULT_PARAMS['CHROME_PATH']
+
     try:
         if platform == "linux" or platform == "linux2":
             # linux
@@ -185,6 +195,7 @@ def get_chrome_driver():
         print(f'Existing Chrome driver path: {os.path.join(chrome_driver_path, chrome_driver_file)}')
         print(f'Existing Chrome driver version: {chrome_driver_version}')
         print(f'Existing Chrome driver compatible? {chrome_driver_compatible}')
+        print()
 
     if not chrome_driver_exists or not chrome_driver_compatible:
         # Downloads the chromedriver.exe file from the links 
@@ -226,15 +237,8 @@ def get_chrome_driver():
 def main():
     
     sys.excepthook = show_exception_and_exit
-    # Example
-    # url = 'https://www.flashscore.com/team/medyk-konin/2couPXCh/transfers/'
-    # year = 2023
-    # month = 6
-    # day = 29
 
-    url, year, month, day = get_user_input()
-    earliest_date_included = datetime.datetime(year, month, day)
-
+    print('\nStarting... (Ctrl+C anytime to quit)\n')
     chrome_driver_exists, chrome_driver_path = get_chrome_driver()
     service = Service(executable_path=chrome_driver_path)
     chrome_options = webdriver.ChromeOptions()
@@ -243,35 +247,57 @@ def main():
     driver = webdriver.Chrome(service=service, options=chrome_options)
     driver.implicitly_wait(10)
 
-    print('Searching for transfers...')
-    driver.get(url)
-    driver.find_element(By.ID, 'onetrust-accept-btn-handler').click()
-    time.sleep(3)
+    
+    # Example
+    # url = 'https://www.flashscore.com/team/medyk-konin/2couPXCh/transfers/'
+    # year = 2023
+    # month = 6
+    # day = 29
+
     while True:
         try:
-            driver.find_element(By.CSS_SELECTOR, 'div.transferTab__more > a').click()
-            time.sleep(0.2)
-        except Exception as e:
+            url, year, month, day = get_user_input()
+            earliest_date_included = datetime.datetime(year, month, day)
+
+
+            print('\nSearching for transfers...')
+            driver.get(url)
+            driver.find_element(By.ID, 'onetrust-accept-btn-handler').click()
+            time.sleep(3)
+            while True:
+                try:
+                    driver.find_element(By.CSS_SELECTOR, 'div.transferTab__more > a').click()
+                    time.sleep(0.2)
+                except Exception as e:
+                    break
+
+
+            elements = driver.find_elements(By.CSS_SELECTOR, 'div.transferTab__row.transferTab__row--team')[1:]
+            print(f'Found {len(elements)} total transfers')
+            print(f'Selecting transfers on and after {calendar.month_name[month]} {day}, {year}...\n')
+            urls = []
+            players = []
+            for element in elements:
+                date_text = element.find_element(By.CSS_SELECTOR, 'div.transferTab__date').text
+                date = datetime.datetime.strptime(date_text, '%d.%m.%Y')
+                departing = element.find_element(By.CSS_SELECTOR, 'div.transferTab__team--to > svg.arrow').get_attribute('class')
+                isDeparting = 'transferTab__typeIcon--out' in departing.split(' ')
+                if date >= earliest_date_included and (not DEFAULT_PARAMS['DEPARTING_ONLY'] or isDeparting):
+                    name_ele = element.find_element(By.CSS_SELECTOR, 'div.transferTab__player > div.transferTab__teamName > a')
+                    players.append(f'{date.strftime("%d.%m.%Y")} - {name_ele.text}')
+                    urls.append(name_ele.get_attribute('href'))
+            for player in players:
+                print(player)
+            print(f'\nFound {len(urls)} {"departing " if DEFAULT_PARAMS["DEPARTING_ONLY"] else ""}transfers on and after {calendar.month_name[month]} {day}, {year}\n')
+
+            open_pages(urls)
+        except KeyboardInterrupt as e:
+            print('\nExiting...')
+            driver.quit()
             break
-
-
-    elements = driver.find_elements(By.CSS_SELECTOR, 'div.transferTab__row.transferTab__row--team')[1:]
-    print(f'\nFound {len(elements)} total transfers\n')
-    print(f'Selecting transfers on and after {calendar.month_name[month]} {day}, {year}...\n')
-    urls = []
-    players = []
-    for element in elements:
-        date_text = element.find_element(By.CSS_SELECTOR, 'div.transferTab__date').text
-        date = datetime.datetime.strptime(date_text, '%d.%m.%Y')
-        if date >= earliest_date_included:
-            name_ele = element.find_element(By.CSS_SELECTOR, 'div.transferTab__player > div.transferTab__teamName > a')
-            players.append(f'{date.strftime("%d.%m.%Y")} - {name_ele.text}')
-            urls.append(name_ele.get_attribute('href'))
-    for player in players:
-        print(player)
-    print(f'\nFound {len(urls)} transfers on and after {calendar.month_name[month]} {day}, {year}\n')
-
-    open_pages(urls)
+        if not DEFAULT_PARAMS['LOOP']:
+            driver.quit()
+            break
 
 if __name__ == '__main__':
     main()
